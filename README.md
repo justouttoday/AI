@@ -1,41 +1,79 @@
 # AI
 
-## Suno automatic song ability
+## Suno → Google Drive one-click automation
 
-This repo now includes `suno-automation.js`, which adds a `SunoAutomation` helper that can:
+You asked for a flow that can be triggered once and then does:
 
-- detect prompts like `make a song about ...`
-- send the prompt to a configured Suno-compatible generation API
-- poll for completion
-- reply with a generated song link
+1. login to Suno
+2. open Create
+3. paste prompt/style
+4. click Create
+5. wait for completion
+6. download and upload to Google Drive
 
-### Quick usage
+This repository now includes `suno-drive-automation.mjs` to do exactly that with Playwright + Google Drive API.
 
-```html
-<script src="suno-automation.js"></script>
-<script>
-  const suno = new SunoAutomation();
+---
 
-  // One-time setup (stored in localStorage)
-  suno.configure({
-    apiBaseUrl: "https://YOUR-SUNO-BACKEND/api/v1",
-    apiKey: "YOUR_API_KEY"
-  });
+## What was added
 
-  async function handleMessage(userText) {
-    const result = await suno.handleUserRequest(userText);
-    if (result.handled) {
-      console.log(result.reply); // includes song link when done
-    }
-  }
-</script>
+- `suno-drive-automation.mjs`
+  - Opens a real browser with Playwright.
+  - Reuses a saved Suno login session from `.suno-auth-state.json`.
+  - Fills the Suno prompt field and clicks Create.
+  - Waits for generation and download.
+  - Uploads the downloaded audio file to Google Drive.
+- `package.json`
+  - Adds scripts and dependencies for automation.
+
+---
+
+## Setup
+
+### 1) Install dependencies
+
+```bash
+npm install
 ```
 
-### Important note
+### 2) Configure Google Drive OAuth env vars
 
-Suno's public official API availability can vary, so this helper is backend-agnostic and expects a compatible endpoint pair:
+Create `.env` in repo root:
 
-- `POST {apiBaseUrl}/generate`
-- `GET {apiBaseUrl}/generate/record-info?taskId=...`
+```env
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REFRESH_TOKEN=...
+# optional
+GOOGLE_REDIRECT_URI=urn:ietf:wg:oauth:2.0:oob
+GOOGLE_DRIVE_FOLDER_ID=
+SUNO_TIMEOUT_MS=1800000
+SUNO_POLL_INTERVAL_MS=10000
+```
 
-If your provider uses different routes/fields, adapt `startGeneration()` and `fetchSongUrl()` in `suno-automation.js`.
+> `GOOGLE_DRIVE_FOLDER_ID` is optional. If omitted, files upload to My Drive root.
+
+### 3) Run automation
+
+```bash
+npm run song -- "make a song about neon city nights with dreamy synths"
+```
+
+On first run, complete Suno login in the opened browser; session state is then saved to `.suno-auth-state.json` for future runs.
+
+---
+
+## Notes / selector tuning
+
+Suno can change their UI. If Suno updates labels/placeholders, update selectors in:
+
+- `fillPromptAndCreate()`
+- `waitForDownload()`
+
+inside `suno-drive-automation.mjs`.
+
+---
+
+## Optional: existing helper
+
+The previous backend-agnostic helper (`suno-automation.js`) is still present if you want API-based integration. The new script is for browser-level end-to-end automation including Google Drive upload.
